@@ -14,12 +14,18 @@ from rich.rule import Rule
 from rich.panel import Panel
 
 DATA_FILE = Path(__file__).parent / "HolyGrail_Invisibles.json"
+BASES_FILE = Path(__file__).parent / "bases.json"
 
 console = Console()
 
 
 def load_data():
     with open(DATA_FILE) as f:
+        return json.load(f)
+
+
+def load_bases():
+    with open(BASES_FILE) as f:
         return json.load(f)
 
 
@@ -63,35 +69,25 @@ def iter_items(d, path=None):
                 yield from iter_items(v, path + [k])
 
 
-def cmd_missing(data):
-    print_progress(data)
-    console.print(Rule("[bold yellow]MISSING ITEMS[/bold yellow]"))
-    console.print()
-
+def cmd_missing(data, bases):
     sections = [
-        ("UNIQUES — Armor", data["uniques"]["armor"]),
-        ("UNIQUES — Weapons", data["uniques"]["weapons"]),
-        ("UNIQUES — Other", data["uniques"]["other"]),
-        ("SETS", data["sets"]),
+        ("UNIQUES — Armor", data["uniques"]["armor"], "gold1"),
+        ("UNIQUES — Weapons", data["uniques"]["weapons"], "gold1"),
+        ("UNIQUES — Other", data["uniques"]["other"], "gold1"),
+        ("SETS", data["sets"], "green"),
     ]
 
-    for section_title, section_data in sections:
-        missing = [(name, path, found) for name, path, found in iter_items(section_data) if not found]
+    for section_title, section_data, color in sections:
+        missing = [(name, path) for name, path, found in iter_items(section_data) if not found]
         if not missing:
             continue
 
-        console.print(f"[bold magenta]{section_title}[/bold magenta]")
+        console.print(f"[bold {color}]{section_title}[/bold {color}]")
 
-        # Group by path
-        grouped = {}
-        for name, path, _ in missing:
-            key = " > ".join(path) if path else "—"
-            grouped.setdefault(key, []).append(name)
-
-        for group, items in grouped.items():
-            console.print(f"  [dim]{group}[/dim]")
-            for item in items:
-                console.print(f"    [bold white]- {item}[/bold white]")
+        for item, path in missing:
+            base = bases.get(item, "")
+            suffix = f" [cyan][{base}][/cyan]" if base else ""
+            console.print(f"  [bold white]{item}[/bold white]{suffix}")
 
         console.print()
 
@@ -135,10 +131,11 @@ def main():
         sys.exit(1)
 
     data = load_data()
+    bases = load_bases()
     cmd = sys.argv[1]
 
     if cmd == "m":
-        cmd_missing(data)
+        cmd_missing(data, bases)
     elif cmd == "f":
         cmd_full(data)
 
